@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Solar Explorer - Interactive Space Voyage</title>
+    
+    <!-- FAVICON (YOUR EXACT TELESCOPE & STARS IMAGE CROPPED TO SQUARE) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><clipPath id='c'><rect width='100' height='100' rx='20'/></clipPath><g clip-path='url(%23c)'><image href='https://images-assets.nasa.gov/image/PIA03002/PIA03002~orig.jpg' width='100' height='100' preserveAspectRatio='xMidYMid slice'/></g></svg>" />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              fredoka: ['Fredoka', 'cursive'],
+            },
+            animation: {
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'spin-slow': 'spin 30s linear infinite',
+              'float': 'float 6s ease-in-out infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0px)' },
+                '50%': { transform: 'translateY(-10px)' },
+              }
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      /* Prevent scrolling on whole viewport */
+      html, body {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        touch-action: manipulation;
+      }
+      /* Custom scrollbars inside modals/drawers */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.6);
+        border-radius: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(56, 189, 248, 0.3);
+        border-radius: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(56, 189, 248, 0.6);
+      }
+      /* Solar system orbits */
+      .orbit-line {
+        border: 1px dashed rgba(255, 255, 255, 0.15);
+        border-radius: 50%;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+
+      /* Animated Orbit Rotation Classes */
+      .orbit-rotator {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        pointer-events: none;
+        animation-name: orbitRotate;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+      }
+      @keyframes orbitRotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      .planet-interactive-body {
+        pointer-events: auto;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-950 text-slate-100 font-sans h-screen w-screen overflow-hidden select-none flex flex-col">
+
+    <!-- TOP HEADER BAR -->
+    <header class="h-14 px-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between z-20 shrink-0">
+      <div class="flex items-center gap-3">
+        <!-- EXACT TELESCOPE IMAGE CROPPED IN A SQUARE BADGE -->
+        <div class="w-10 h-10 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-center shadow-lg relative overflow-hidden shrink-0 group">
+          <img 
+            src="https://images.unsplash.com/photo-1516339901601-2e1b62dc0c45?q=80&w=600&auto=format&fit=crop" 
+            alt="Telescope and Stars Logo" 
+            class="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300" 
+          />
+        </div>
+        <div>
+          <h1 class="font-fredoka text-lg font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent leading-tight">
+            Solar Explorer
+          </h1>
+          
+          <!-- ROUNDED RECTANGLE CONTROL BADGE FOR ORBITAL SPINNING SPEED -->
+          <div class="flex items-center gap-2 bg-slate-950/90 border border-slate-700/80 rounded-full px-2.5 py-0.5 mt-0.5 text-[10px] shadow-inner text-slate-300">
+            <span class="font-semibold text-cyan-400 flex items-center gap-1">
+              <i class="fa-solid fa-gauge-high text-[9px]"></i> Orbit Speed:
+            </span>
+            <input type="range" id="orbit-speed-slider" min="0" max="5" step="0.2" value="1" oninput="updateOrbitSpeed(this.value)" class="w-14 sm:w-20 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400" title="Adjust Planetary Orbit Speed" />
+            <span id="speed-val-label" class="font-mono text-cyan-300 w-6 text-right">1.0x</span>
+            <button id="pause-orbit-btn" onclick="toggleOrbitPause()" class="ml-1 px-1.5 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-[9px] font-bold border border-slate-700 transition" title="Pause / Resume Orbits">
+              <i class="fa-solid fa-pause"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- WEBSITE URL BADGE / ADDRESS BAR -->
+      <div class="hidden md:flex items-center gap-2 bg-slate-950/80 border border-slate-700/80 rounded-full px-3 py-1 text-xs text-slate-300 shadow-inner">
+        <i class="fa-solid fa-lock text-emerald-400 text-[10px]"></i>
+        <span class="font-mono text-cyan-300 font-medium">https://solar.explorer.com</span>
+        <button onclick="copyWebUrl()" title="Copy Website URL" class="hover:text-white transition ml-1 text-slate-400">
+          <i class="fa-solid fa-copy text-[11px]"></i>
+        </button>
+      </div>
+
+      <!-- NAVIGATION TABS -->
+      <nav class="flex items-center gap-1 sm:gap-2">
+        <button id="nav-map" onclick="switchTab('map')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition">
+          <i class="fa-solid fa-compass"></i>
+          <span>Map</span>
+        </button>
+        <button id="nav-facts" onclick="switchTab('facts')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 transition">
+          <i class="fa-solid fa-lightbulb"></i>
+          <span>Fun Facts</span>
+        </button>
+        <button id="nav-quiz" onclick="switchTab('quiz')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 transition">
+          <i class="fa-solid fa-gamepad"></i>
+          <span>Quiz</span>
+        </button>
+        <button id="nav-tactoe" onclick="switchTab('tactoe')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 transition">
+          <i class="fa-solid fa-border-all"></i>
+          <span>Planet Tac Toe</span>
+        </button>
+        <button onclick="openHelpModal()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition flex items-center gap-1.5 shrink-0" title="Need Help?">
+          <i class="fa-solid fa-circle-question text-amber-400"></i>
+          <span>Need Help</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- MAIN INTERACTIVE CONTAINER -->
+    <main class="relative flex-1 w-full h-[calc(100vh-3.5rem)] overflow-hidden bg-slate-950">
+      
+      <!-- BACKGROUND STARFIELD -->
+      <div id="starfield" class="absolute inset-0 pointer-events-none opacity-80"></div>
+
+      <!-- SECTION 1: MAP VIEW -->
+      <div id="tab-map" class="absolute inset-0 flex flex-col justify-between p-2 sm:p-4 z-10 transition-opacity duration-300">
+        
+        <!-- MAP VIEWPORT CONTROLS (FULLSCREEN, ZOOM, RESET) -->
+        <div class="absolute top-4 right-4 z-30 flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 rounded-2xl p-1.5 backdrop-blur-md shadow-xl">
+          <button onclick="zoomMap(0.15)" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-xs transition" title="Zoom In">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+          <button onclick="zoomMap(-0.15)" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-xs transition" title="Zoom Out / Minimize">
+            <i class="fa-solid fa-minus"></i>
+          </button>
+          <button onclick="resetMapZoom()" class="px-2.5 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition flex items-center gap-1" title="Reset Map View">
+            <i class="fa-solid fa-rotate-left text-[10px]"></i>
+            <span>Reset</span>
+          </button>
+          <button onclick="toggleMapFullscreen()" class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500 hover:text-slate-950 flex items-center justify-center text-xs transition" title="Maximize Map">
+            <i id="fullscreen-icon" class="fa-solid fa-expand"></i>
+          </button>
+        </div>
+
+        <!-- Interactive Space Viewport -->
+        <div id="canvas-viewport" class="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing">
+          
+          <div id="space-stage" class="relative flex items-center justify-center transition-transform duration-200 ease-out" style="width: 800px; height: 800px; transform: scale(1);">
+            <div class="orbit-line" style="width: 270px; height: 270px;"></div> <!-- Earth -->
+            <div class="orbit-line" style="width: 340px; height: 340px;"></div> <!-- Mars -->
+            <div class="orbit-line" style="width: 410px; height: 410px; border-color: rgba(234,179,8,0.2);"></div> <!-- Ceres -->
+            <div class="orbit-line" style="width: 490px; height: 490px;"></div> <!-- Jupiter -->
+            <div class="orbit-line" style="width: 580px; height: 580px;"></div> <!-- Saturn -->
+            <div class="orbit-line" style="width: 660px; height: 660px;"></div> <!-- Uranus -->
+            <div class="orbit-line" style="width: 730px; height: 730px;"></div> <!-- Neptune -->
+            <div class="orbit-line" style="width: 790px; height: 790px; border-color: rgba(168,85,247,0.2);"></div> <!-- Outer Dwarf Ring -->
+
+            <!-- SUN -->
+            <div onclick="openPlanetModal('sun')" class="absolute cursor-pointer group z-20 flex flex-col items-center justify-center">
+              <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-yellow-300 shadow-[0_0_50px_rgba(245,158,11,0.8)] flex items-center justify-center relative animate-pulse-slow group-hover:scale-110 transition-transform">
+                <div class="absolute inset-0 rounded-full bg-orange-400 blur-md opacity-50 group-hover:opacity-80 transition"></div>
+                <div class="text-3xl relative z-10">☀️</div>
+              </div>
+              <span class="text-xs font-bold text-amber-300 mt-1 drop-shadow group-hover:text-amber-200">SUN</span>
+            </div>
+
+            <!-- ANIMATED ORBIT ROTATING CONTAINERS -->
+
+            <!-- MERCURY ORBIT ROTATOR -->
+            <div class="orbit-rotator" style="animation-duration: 8s;">
+              <div onclick="openPlanetModal('mercury')" class="planet-interactive-body absolute cursor-pointer group flex flex-col items-center" style="top: calc(50% - 70px); left: 50%; transform: translate(-50%, -50%);">
+                <div class="w-7 h-7 rounded-full bg-slate-400 border border-slate-300 shadow-md flex items-center justify-center text-xs group-hover:scale-125 transition-transform">🌑</div>
+                <span class="text-[10px] font-semibold text-slate-300 mt-1">Mercury</span>
+              </div>
+            </div>
+
+            <!-- VENUS ORBIT ROTATOR -->
+            <div class="orbit-rotator" style="animation-duration: 14s;">
+              <div onclick="openPlanetModal('venus')" class="planet-interactive-body absolute cursor-pointer group flex flex-col items-center" style="top: calc(50% - 100px); left: 50%; transform: translate(-50%, -50%);">
+                <div class="w-9 h-9 rounded-full bg-amber-600 border border-amber-300 shadow-md flex items-center justify-center text-xs group-hover:scale-125 transition-transform">🌕</div>
+                <span class="text-[10px] font-semibold text-amber-300 mt-1">Venus</span>
+              </div>
+            </div>
+
+            <!-- EARTH ORBIT ROTATOR -->
+            <div class="orbit-rotator" style="animation-duration: 20s;">
+              <div onclick="openPlanetModal('earth')" class="planet-interactive-body absolute cursor-pointer group flex flex-col items-center" style="top: calc(50% - 135px); left: 50%; transform: translate(-50%, -50%);">
+                <div class="w-10 h-10 rounded-full bg-blue-600 border border-cyan-300 shadow-lg flex items-center justify-center text-sm group-hover:scale-125 transition-transform">🌎</div>
+                <span class="text-[10px] font-semibold text-cyan-300 mt-1">Earth</span>
+              </div>
+            </div>
+
+            <!-- MARS ORBIT ROTATOR -->
+            <div class="orbit-rotator" style="animation-duration: 28s;">
+              <div onclick="openPlanetModal('mars')" class="planet-interactive-body absolute cursor-pointer group flex flex-col items-center" style="top: calc(50% - 170px); left: 50%; transform: translate(-50%, -50%);">
+                <div class="w-8 h-8 rounded-full bg-red-600 border border-red-300 shadow-md flex items-center justify-center text-xs group-hover:scale-125 transition-transform">🔴</div>
+                <span class="text-[10px] font-semibold text-red-300 mt-1">Mars</span>
+              </div>
+            </div>
+
+            <!-- CERES ORBIT ROTATOR -->
+            <div class="orbit-rotator" style="animation-duration: 34s;">
+              <div onclick="openPlanetModal('ceres')" class="planet-interactive-body absolute cursor-pointer group flex flex-col items-center" style="top: calc(50% - 205px); left: 50%; transform: translate(-50%, -50%);">
+                <div class="w-6 h-6 rounded-full bg-stone-500 border border-stone-300 shadow flex items-center justify-center text-[10px] group-hover:scale-125 transition-transform">🪨</div>
+                <span class="text-[9px] font-medium text-stone-300 mt-0.5">Ceres</span>
+              </div>
+            </div>
+
+            <!-- JUPITER ORBIT ROTATOR -->
+            <div class="orbit-rotator" style="animation-duration: 45s;">
+              <div onclick="openPlanetModal('jupiter')" class="planet-interactive-body absolute cursor-pointer group flex flex-col items-center" style="top: calc(50% - 245px); left: 50%; transform: translate(-50%, -50%);">
+                <div class="w-14 h-14 rounded-full bg-gradient-to-b from-amber-700 via-orange-400 to-amber-800 border border-amber-300 shadow-xl flex items-center justify-center text-xl group-hover:scale-125 transition-transform">🪐</div>
+                <span class="text-[10px] font-bold text-amber-200 mt-1">Jupiter</span>
+              </div>
+            </div>
+
+            <!-- SATURN ORBIT ROTATOR -->
+            <div class="orbit-rotator" style="animation-duration: 60s;">
+              <div onclick="openPlanetModal('saturn')" class="planet-interactive-body absolute cursor-pointer group flex flex-col items-center" style="top: calc(50% - 290px); left: 50%; transform: translate(-50%, -50%);">
+                <div class="w-12 h-12 rounded-full bg-yellow-600 border border-yellow-200 shadow-lg flex items-center justify-center text-lg relative group-hover:scale-125 transition-transform">🪐</div>
+                <span class="text-[10px] font-bold text-yellow-300 mt-1">Saturn</span>
+              </div>
+            </div>
+
+            <!-- URANUS ORBIT ROTATOR -->
+            <div class="orbit-rotator" style="animation-duration: 75s;">
+              <div onclick="openPlanetModal('uranus')" class="planet-interactive-body absolute cursor-pointer group flex flex-col items-center" style="top: calc(50% - 330px); left: 50%; transform: translate(-50%, -50%);">
+                <div class="w-10 h-10 rounded-full bg-cyan-400 border border-cyan-200 shadow-md flex items-center justify-center text-sm group-hover:scale-125 transition-transform">💎</div>
+                <span class="text-[10px] font-semibold text-cyan-200 mt-1">Uranus</span>
+              </div>
+            </div>
+
+            <!-- NEPTUNE ORBIT ROTATOR -->
+            <div class="orbit-rotator" style="animation-duration: 90s;">
+              <div onclick="openPlanetModal('neptune')" class="planet-interactive-body absolute cursor-pointer group flex flex-col items-center" style="top: calc(50% - 365px); left: 50%; transform: translate(-50%, -50%);">
+                <div class="w-10 h-10 rounded-full bg-blue-700 border border-blue-300 shadow-md flex items-center justify-center text-sm group-hover:scale-125 transition-transform">🔵</div>
+                <span class="text-[10px] font-semibold text-blue-300 mt-1">Neptune</span>
+              </div>
+            </div>
+
+            <!-- PLUTO ORBIT ROTATOR -->
+            <div class="orbit-rotator" style="animation-duration: 105s;">
+              <div onclick="openPlanetModal('pluto')" class="planet-interactive-body absolute cursor-pointer group flex flex-col items-center" style="top: calc(50% - 395px); left: 50%; transform: translate(-50%, -50%);">
+                <div class="w-6 h-6 rounded-full bg-slate-500 border border-purple-300 shadow flex items-center justify-center text-[10px] group-hover:scale-125 transition-transform">❄️</div>
+                <span class="text-[9px] font-medium text-purple-300 mt-0.5">Pluto</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- QUICK DOCK NAVIGATION -->
+        <div class="w-full shrink-0 pt-2 pb-1 z-20">
+          <div class="max-w-4xl mx-auto bg-slate-900/90 border border-slate-800 rounded-2xl p-2 backdrop-blur-md flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
+            <span class="text-[10px] font-bold text-slate-400 px-2 uppercase tracking-wider shrink-0">Dock</span>
+            <button onclick="openPlanetModal('sun')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-amber-500/20 text-xs font-semibold text-amber-300 border border-slate-700 hover:border-amber-500/50 transition shrink-0 flex items-center gap-1">☀️ Sun</button>
+            <button onclick="openPlanetModal('mercury')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700 transition shrink-0 flex items-center gap-1">🌑 Mercury</button>
+            <button onclick="openPlanetModal('venus')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-amber-700/30 text-xs font-semibold text-amber-200 border border-slate-700 transition shrink-0 flex items-center gap-1">🌕 Venus</button>
+            <button onclick="openPlanetModal('earth')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-blue-600/30 text-xs font-semibold text-cyan-300 border border-slate-700 transition shrink-0 flex items-center gap-1">🌎 Earth</button>
+            <button onclick="openPlanetModal('mars')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-red-600/30 text-xs font-semibold text-red-300 border border-slate-700 transition shrink-0 flex items-center gap-1">🔴 Mars</button>
+            <button onclick="openPlanetModal('ceres')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-stone-600/30 text-xs font-semibold text-stone-300 border border-slate-700 transition shrink-0 flex items-center gap-1">🪨 Ceres</button>
+            <button onclick="openPlanetModal('jupiter')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-amber-600/30 text-xs font-semibold text-amber-300 border border-slate-700 transition shrink-0 flex items-center gap-1">🪐 Jupiter</button>
+            <button onclick="openPlanetModal('saturn')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-yellow-600/30 text-xs font-semibold text-yellow-300 border border-slate-700 transition shrink-0 flex items-center gap-1">🪐 Saturn</button>
+            <button onclick="openPlanetModal('uranus')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-cyan-600/30 text-xs font-semibold text-cyan-200 border border-slate-700 transition shrink-0 flex items-center gap-1">💎 Uranus</button>
+            <button onclick="openPlanetModal('neptune')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-blue-600/30 text-xs font-semibold text-blue-300 border border-slate-700 transition shrink-0 flex items-center gap-1">🔵 Neptune</button>
+            <button onclick="openPlanetModal('pluto')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-purple-600/30 text-xs font-semibold text-purple-300 border border-slate-700 transition shrink-0 flex items-center gap-1">❄️ Pluto</button>
+            <button onclick="openPlanetModal('haumea')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-zinc-600/30 text-xs font-semibold text-zinc-300 border border-slate-700 transition shrink-0 flex items-center gap-1">🥚 Haumea</button>
+            <button onclick="openPlanetModal('makemake')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-orange-600/30 text-xs font-semibold text-orange-300 border border-slate-700 transition shrink-0 flex items-center gap-1">☄️ Makemake</button>
+            <button onclick="openPlanetModal('eris')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-600/30 text-xs font-semibold text-slate-200 border border-slate-700 transition shrink-0 flex items-center gap-1">🧊 Eris</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SECTION 2: FUN FACTS TAB -->
+      <div id="tab-facts" class="absolute inset-0 p-4 sm:p-6 hidden overflow-y-auto custom-scrollbar z-10">
+        <div class="max-w-4xl mx-auto space-y-6">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            <div>
+              <h2 class="text-2xl font-bold font-fredoka text-cyan-300">Cosmic Fun Facts</h2>
+              <p class="text-xs text-slate-400">Mind-blowing facts about our solar system</p>
+            </div>
+            <!-- Category Filters -->
+            <div id="fact-filters" class="flex flex-wrap gap-1.5">
+              <button onclick="filterFacts('all')" class="fact-filter-btn px-3 py-1 rounded-full text-xs font-medium bg-cyan-500 text-slate-950">All</button>
+              <button onclick="filterFacts('planets')" class="fact-filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Planets</button>
+              <button onclick="filterFacts('sun')" class="fact-filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Sun</button>
+              <button onclick="filterFacts('dwarfs')" class="fact-filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Dwarf Planets</button>
+            </div>
+          </div>
+
+          <div id="facts-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3: QUIZ TAB -->
+      <div id="tab-quiz" class="absolute inset-0 p-4 sm:p-6 hidden overflow-y-auto custom-scrollbar z-10">
+        <div class="max-w-2xl mx-auto space-y-6">
+          <div class="text-center space-y-1">
+            <h2 class="text-2xl font-bold font-fredoka text-cyan-300">Solar System Explorer Quiz</h2>
+            <p class="text-xs text-slate-400">Test your space knowledge!</p>
+          </div>
+
+          <!-- Quiz Card -->
+          <div id="quiz-card" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 backdrop-blur-md shadow-2xl space-y-6">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 4: PLANET TAC TOE TAB -->
+      <div id="tab-tactoe" class="absolute inset-0 p-4 sm:p-6 hidden overflow-y-auto custom-scrollbar z-10">
+        <div class="max-w-2xl mx-auto space-y-6">
+          
+          <!-- Section Title -->
+          <div class="text-center space-y-1">
+            <h2 class="text-2xl font-bold font-fredoka text-cyan-300 flex items-center justify-center gap-2">
+              <span>🪐 Planet Tac Toe</span>
+            </h2>
+            <p class="text-xs text-slate-400">Tic-Tac-Toe re-imagined with cosmic celestial bodies!</p>
+          </div>
+
+          <!-- Game Screen Container -->
+          <div id="tactoe-container" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 backdrop-blur-md shadow-2xl space-y-6">
+            <!-- Step 1: Info & How it Works Screen -->
+            <div id="tactoe-intro-screen" class="space-y-5">
+              <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-3">
+                <h3 class="text-sm font-bold text-cyan-300 flex items-center gap-2">
+                  <i class="fa-solid fa-circle-info text-cyan-400"></i>
+                  <span>What is Planet Tac Toe & How it Works</span>
+                </h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                  Instead of standard <strong class="text-amber-300">X</strong> and <strong class="text-cyan-300">O</strong>, choose your favorite solar system planets or stars (like 🪐 Saturn, 🌎 Earth, or ☀️ Sun) to battle across a 3x3 cosmic grid! Align 3 matching planets in a row, column, or diagonal to claim victory in deep space.
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-[11px]">
+                  <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-center">
+                    <div class="text-lg mb-1">🤖</div>
+                    <strong class="text-slate-200 block">Vs Computer</strong>
+                    <span class="text-slate-400 text-[10px]">Play against AI (Easy, Medium, Hard)</span>
+                  </div>
+                  <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-center">
+                    <div class="text-lg mb-1">🛰️</div>
+                    <strong class="text-slate-200 block">Online Match</strong>
+                    <span class="text-slate-400 text-[10px]">Scan for online captains worldwide</span>
+                  </div>
+                  <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-center">
+                    <div class="text-lg mb-1">👥</div>
+                    <strong class="text-slate-200 block">Pass & Play</strong>
+                    <span class="text-slate-400 text-[10px]">Play with a friend on same screen</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Start Button -->
+              <button onclick="showSymbolSelection()" class="w-full py-3 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 text-slate-950 font-bold rounded-xl text-xs hover:brightness-110 transition shadow-lg flex items-center justify-center gap-2">
+                <span>Configure Game & Select Symbols</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <!-- Step 2: Choose Symbols & Game Mode Screen -->
+            <div id="tactoe-config-screen" class="hidden space-y-5">
+              
+              <!-- Select Game Mode -->
+              <div class="space-y-2">
+                <label class="block text-xs font-bold text-slate-300">Select Game Mode:</label>
+                <div class="grid grid-cols-3 gap-2">
+                  <button id="mode-single" onclick="setTacMode('single')" class="p-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 text-xs font-semibold text-center transition">
+                    🤖 Single Player
+                  </button>
+                  <button id="mode-online" onclick="setTacMode('online')" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-semibold text-center transition">
+                    🛰️ Online Match
+                  </button>
+                  <button id="mode-pass" onclick="setTacMode('pass')" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-semibold text-center transition">
+                    👥 Pass & Play
+                  </button>
+                </div>
+              </div>
+
+              <!-- Difficulty selector (Visible in Single Player) -->
+              <div id="difficulty-box" class="space-y-2">
+                <label class="block text-xs font-bold text-slate-300">Computer Difficulty Level:</label>
+                <div class="flex gap-2">
+                  <button id="diff-easy" onclick="setTacDiff('easy')" class="flex-1 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-medium">Easy</button>
+                  <button id="diff-medium" onclick="setTacDiff('medium')" class="flex-1 py-1.5 rounded-lg bg-slate-950 text-slate-400 border border-slate-800 text-xs font-medium">Medium</button>
+                  <button id="diff-hard" onclick="setTacDiff('hard')" class="flex-1 py-1.5 rounded-lg bg-slate-950 text-slate-400 border border-slate-800 text-xs font-medium">Hard (Unbeatable)</button>
+                </div>
+              </div>
+
+              <!-- Symbol Pickers -->
+              <div class="space-y-3 pt-2 border-t border-slate-800">
+                <label class="block text-xs font-bold text-slate-300">Choose Your Planet Symbol (Player 1):</label>
+                <div id="p1-symbols" class="flex flex-wrap gap-2">
+                  <!-- Rendered by JS -->
+                </div>
+
+                <label class="block text-xs font-bold text-slate-300 pt-2">Choose Opponent/P2 Planet Symbol:</label>
+                <div id="p2-symbols" class="flex flex-wrap gap-2">
+                  <!-- Rendered by JS -->
+                </div>
+              </div>
+
+              <div class="flex gap-2 pt-2">
+                <button onclick="showTacIntro()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition">Back</button>
+                <button onclick="startTacGame()" class="flex-1 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-play"></i>
+                  <span>Launch Battle</span>
+                </button>
+              </div>
+
+            </div>
+
+            <!-- Step 3: Matchmaking Radar Screen -->
+            <div id="tactoe-online-loading" class="hidden text-center py-8 space-y-4">
+              <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-2 border-cyan-500/30 animate-ping"></div>
+                <div class="absolute inset-2 rounded-full border-2 border-dashed border-cyan-400 animate-spin-slow"></div>
+                <span class="text-3xl">🛰️</span>
+              </div>
+              <div class="space-y-1">
+                <h3 class="text-base font-bold font-fredoka text-cyan-300">Scanning Orbital Frequencies...</h3>
+                <p class="text-xs text-slate-400">Searching for available space captains worldwide on solar.explorer.com...</p>
+              </div>
+              <p id="online-status-msg" class="text-[11px] text-amber-400 font-mono animate-pulse">Connecting to server node...</p>
+            </div>
+
+            <!-- Step 4: Tac Toe Game Grid Screen -->
+            <div id="tactoe-board-screen" class="hidden space-y-4">
+              
+              <!-- Turn & Score Header -->
+              <div class="flex items-center justify-between bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-xs">
+                <div class="flex items-center gap-2">
+                  <span id="p1-icon-badge" class="text-xl">🪐</span>
+                  <div>
+                    <span id="p1-name-label" class="font-bold text-slate-200 block">Player 1</span>
+                    <span id="p1-score" class="text-[10px] text-cyan-400 font-mono">Wins: 0</span>
+                  </div>
+                </div>
+
+                <div class="text-center">
+                  <span id="tactoe-turn-badge" class="px-3 py-1 rounded-full text-[11px] font-bold bg-cyan-500 text-slate-950">
+                    P1's Turn
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-2 text-right">
+                  <div>
+                    <span id="p2-name-label" class="font-bold text-slate-200 block">Bot</span>
+                    <span id="p2-score" class="text-[10px] text-cyan-400 font-mono">Wins: 0</span>
+                  </div>
+                  <span id="p2-icon-badge" class="text-xl">🌎</span>
+                </div>
+              </div>
+
+              <!-- 3x3 Grid Board -->
+              <div class="grid grid-cols-3 gap-2 bg-slate-950/90 p-3 rounded-2xl border border-slate-800 max-w-xs mx-auto shadow-inner">
+                <button onclick="makeTacMove(0)" id="tac-cell-0" class="h-20 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-3xl flex items-center justify-center transition active:scale-95"></button>
+                <button onclick="makeTacMove(1)" id="tac-cell-1" class="h-20 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-3xl flex items-center justify-center transition active:scale-95"></button>
+                <button onclick="makeTacMove(2)" id="tac-cell-2" class="h-20 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-3xl flex items-center justify-center transition active:scale-95"></button>
+
+                <button onclick="makeTacMove(3)" id="tac-cell-3" class="h-20 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-3xl flex items-center justify-center transition active:scale-95"></button>
+                <button onclick="makeTacMove(4)" id="tac-cell-4" class="h-20 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-3xl flex items-center justify-center transition active:scale-95"></button>
+                <button onclick="makeTacMove(5)" id="tac-cell-5" class="h-20 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-3xl flex items-center justify-center transition active:scale-95"></button>
+
+                <button onclick="makeTacMove(6)" id="tac-cell-6" class="h-20 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-3xl flex items-center justify-center transition active:scale-95"></button>
+                <button onclick="makeTacMove(7)" id="tac-cell-7" class="h-20 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-3xl flex items-center justify-center transition active:scale-95"></button>
+                <button onclick="makeTacMove(8)" id="tac-cell-8" class="h-20 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-3xl flex items-center justify-center transition active:scale-95"></button>
+              </div>
+
+              <!-- Game Controls Footer -->
+              <div class="flex items-center justify-between text-xs pt-2">
+                <button onclick="showSymbolSelection()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition font-medium">
+                  ⚙️ Change Settings
+                </button>
+                <button onclick="restartTacMatch()" class="px-4 py-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500 hover:text-slate-950 rounded-lg transition font-bold">
+                  🔄 Restart Match
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- FOOTER BADGES -->
+    <div class="fixed bottom-3 right-3 z-30 pointer-events-auto flex items-center gap-2">
+      <span class="text-[11px] bg-slate-900/90 text-slate-300 px-3 py-1.5 rounded-full border border-slate-800 backdrop-blur-md shadow-lg flex items-center gap-1.5 font-medium">
+        <i class="fa-solid fa-globe text-cyan-400 text-xs"></i>
+        <span>solar.explorer.com</span>
+      </span>
+      <span class="text-[11px] bg-slate-900/90 text-slate-300 px-3 py-1.5 rounded-full border border-slate-800 backdrop-blur-md shadow-lg font-medium">
+        Made by <strong class="text-cyan-400 font-semibold">Pranil Wani</strong>
+      </span>
+    </div>
+
+    <!-- PLANET DETAILS DRAWER / MODAL -->
+    <div id="planet-modal" class="fixed inset-x-3 top-14 bottom-4 md:inset-x-auto md:right-6 md:top-16 md:bottom-6 md:w-[480px] bg-slate-900/95 border border-slate-700 rounded-2xl shadow-2xl z-40 hidden flex flex-col backdrop-blur-xl overflow-hidden transition-all duration-300">
+      
+      <!-- Drawer Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/40 shrink-0">
+        <div class="flex items-center gap-3">
+          <span id="modal-icon" class="text-3xl">🌎</span>
+          <div>
+            <h3 id="modal-title" class="text-xl font-bold font-fredoka text-cyan-300">Earth</h3>
+            <p id="modal-type" class="text-[11px] text-slate-400">Terrestrial Planet</p>
+          </div>
+        </div>
+        <button onclick="closePlanetModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Drawer Body -->
+      <div class="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+        
+        <!-- High-Res Image Box -->
+        <div class="relative bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-col items-center justify-center group overflow-hidden">
+          <img id="modal-img" src="" alt="Planet Photo" class="max-h-[185px] w-auto max-w-full object-contain rounded-lg transition-transform duration-300 group-hover:scale-105" />
+          <button onclick="openFullImage()" class="mt-2 text-[11px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-3 py-1 rounded-full font-medium hover:bg-cyan-500 hover:text-slate-950 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-expand"></i>
+            <span>View Full High-Res Image</span>
+          </button>
+        </div>
+
+        <!-- Details Sub-Tabs -->
+        <div class="flex border-b border-slate-800 gap-2">
+          <button id="modal-tab-overview-btn" onclick="switchModalSubTab('overview')" class="px-3 py-1.5 text-xs font-semibold border-b-2 border-cyan-400 text-cyan-300">Overview</button>
+          <button id="modal-tab-science-btn" onclick="switchModalSubTab('science')" class="px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200">Science & Structure</button>
+          <button id="modal-tab-missions-btn" onclick="switchModalSubTab('missions')" class="px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200">Missions</button>
+        </div>
+
+        <!-- Sub-Tab Content -->
+        <div id="modal-tab-overview" class="space-y-3">
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
+              <span class="text-slate-400 block text-[10px]">Distance from Sun</span>
+              <strong id="modal-distance" class="text-cyan-300 font-semibold">1 AU (149.6M km)</strong>
+            </div>
+            <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
+              <span class="text-slate-400 block text-[10px]">Avg Temperature</span>
+              <strong id="modal-temp" class="text-cyan-300 font-semibold">15°C</strong>
+            </div>
+            <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
+              <span class="text-slate-400 block text-[10px]">Diameter</span>
+              <strong id="modal-diameter" class="text-cyan-300 font-semibold">12,742 km</strong>
+            </div>
+            <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
+              <span class="text-slate-400 block text-[10px]">Moons</span>
+              <strong id="modal-moons" class="text-cyan-300 font-semibold">1 (The Moon)</strong>
+            </div>
+          </div>
+          <p id="modal-desc" class="text-xs text-slate-300 leading-relaxed bg-slate-950/40 p-3 rounded-lg border border-slate-800/50">
+            Description goes here...
+          </p>
+        </div>
+
+        <div id="modal-tab-science" class="space-y-3 hidden">
+          <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-xs space-y-2">
+            <h4 class="font-bold text-cyan-300">Atmosphere & Composition</h4>
+            <p id="modal-atmosphere" class="text-slate-300 leading-relaxed">Atmosphere details...</p>
+          </div>
+          <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-xs space-y-2">
+            <h4 class="font-bold text-cyan-300">Internal Structure</h4>
+            <p id="modal-structure" class="text-slate-300 leading-relaxed">Internal structure details...</p>
+          </div>
+        </div>
+
+        <div id="modal-tab-missions" class="space-y-3 hidden">
+          <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-xs space-y-2">
+            <h4 class="font-bold text-cyan-300">Historical & Ongoing Exploration</h4>
+            <p id="modal-missions-text" class="text-slate-300 leading-relaxed">Missions details...</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- LIGHTBOX FULL IMAGE MODAL -->
+    <div id="lightbox-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-50 hidden flex flex-col items-center justify-center p-4">
+      <button onclick="closeFullImage()" class="absolute top-4 right-4 text-white text-xl bg-slate-800 w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-700">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <img id="lightbox-img" src="" alt="Full High Res View" class="max-h-[80vh] max-w-[90vw] object-contain rounded-xl shadow-2xl border border-slate-700" />
+      <span id="lightbox-caption" class="mt-3 text-sm text-cyan-300 font-semibold font-fredoka"></span>
+    </div>
+
+    <!-- NEED HELP MODAL -->
+    <div id="help-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 class="text-lg font-bold font-fredoka text-amber-400 flex items-center gap-2">
+            <i class="fa-solid fa-circle-question"></i>
+            <span>Need Help or Have Questions?</span>
+          </h3>
+          <button onclick="closeHelpModal()" class="text-slate-400 hover:text-white">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          If you have any questions about the Solar Explorer website or need assistance, fill out the form below and it will send a message directly to my email:
+        </p>
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono text-cyan-300 flex items-center gap-2">
+          <i class="fa-solid fa-envelope text-amber-400"></i>
+          <span>pranilnwani19@gmail.com</span>
+        </div>
+        
+        <!-- Form to submit directly to email -->
+        <form id="contact-form" onsubmit="handleContactSubmit(event)" class="space-y-3 pt-2">
+          <input type="hidden" name="to_email" value="pranilnwani19@gmail.com" />
+          <input type="hidden" name="subject" value="New Message from Solar Explorer Web App" />
+          
+          <div>
+            <label class="block text-[10px] text-slate-400 mb-1">Your Name</label>
+            <input type="text" id="contact-name" name="name" required placeholder="Space Cadet" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500" />
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-400 mb-1">Your Email</label>
+            <input type="email" id="contact-email" name="email" required placeholder="yourname@example.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500" />
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-400 mb-1">Your Question or Feedback</label>
+            <textarea id="contact-msg" name="message" required rows="3" placeholder="How can we help you?" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"></textarea>
+          </div>
+          <button type="submit" id="submit-btn" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold py-2 rounded-lg text-xs hover:brightness-110 transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Send Email</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+      // MAP VIEWPORT ZOOM & FULLSCREEN CONTROLS
+      let mapZoomScale = 1.0;
+
+      function zoomMap(delta) {
+        mapZoomScale = Math.min(Math.max(0.4, mapZoomScale + delta), 2.2);
+        applyMapZoom();
+      }
+
+      function resetMapZoom() {
+        mapZoomScale = 1.0;
+        applyMapZoom();
+      }
+
+      function applyMapZoom() {
+        const stage = document.getElementById("space-stage");
+        if (stage) {
+          stage.style.transform = `scale(${mapZoomScale})`;
+        }
+      }
+
+      function toggleMapFullscreen() {
+        const mapElem = document.getElementById("tab-map");
+        const fsIcon = document.getElementById("fullscreen-icon");
+
+        // Check if we are currently in CSS fallback expanded state
+        const isCssExpanded = mapElem.classList.contains("fixed");
+
+        if (!document.fullscreenElement && !isCssExpanded) {
+          let requestSuccess = false;
+          try {
+            if (mapElem.requestFullscreen) {
+              const promise = mapElem.requestFullscreen();
+              if (promise && promise.catch) {
+                promise.catch(() => {
+                  // If promise rejected due to permission policy, use CSS fallback
+                  mapElem.classList.add("fixed", "inset-0", "z-50", "bg-slate-950");
+                  if (fsIcon) fsIcon.className = "fa-solid fa-compress";
+                });
+              }
+              requestSuccess = true;
+            } else if (mapElem.webkitRequestFullscreen) {
+              mapElem.webkitRequestFullscreen();
+              requestSuccess = true;
+            }
+          } catch (err) {
+            requestSuccess = false;
+          }
+
+          // If requestFullscreen is disallowed by iframe policy or failed
+          if (!requestSuccess) {
+            mapElem.classList.add("fixed", "inset-0", "z-50", "bg-slate-950");
+          }
+          if (fsIcon) fsIcon.className = "fa-solid fa-compress";
+        } else {
+          try {
+            if (document.fullscreenElement) {
+              if (document.exitFullscreen) {
+                document.exitFullscreen();
+              } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+              }
+            }
+          } catch (err) {
+            // Ignore exit errors
+          }
+          // Remove CSS fallback classes
+          mapElem.classList.remove("fixed", "inset-0", "z-50", "bg-slate-950");
+          if (fsIcon) fsIcon.className = "fa-solid fa-expand";
+        }
+      }
+
+      // ORBIT SPIN SPEED CONTROLLER VARIABLES
+      let baseOrbitSpeed = 1.0;
+      let isOrbitPaused = false;
+
+      function updateOrbitSpeed(val) {
+        baseOrbitSpeed = parseFloat(val);
+        document.getElementById("speed-val-label").innerText = baseOrbitSpeed.toFixed(1) + "x";
+        applyOrbitAnimationStyles();
+      }
+
+      function toggleOrbitPause() {
+        isOrbitPaused = !isOrbitPaused;
+        const btn = document.getElementById("pause-orbit-btn");
+        btn.innerHTML = isOrbitPaused ? '<i class="fa-solid fa-play"></i>' : '<i class="fa-solid fa-pause"></i>';
+        applyOrbitAnimationStyles();
+      }
+
+      function applyOrbitAnimationStyles() {
+        const rotators = document.querySelectorAll(".orbit-rotator");
+        rotators.forEach(rotator => {
+          if (isOrbitPaused || baseOrbitSpeed === 0) {
+            rotator.style.animationPlayState = "paused";
+          } else {
+            rotator.style.animationPlayState = "running";
+            const currentDuration = rotator.getAttribute("data-base-duration");
+            if (currentDuration) {
+              rotator.style.animationDuration = (parseFloat(currentDuration) / baseOrbitSpeed) + "s";
+            }
+          }
+        });
+      }
+
+      // INITIALIZE ORBIT BASE DURATIONS
+      function initOrbitDurations() {
+        const rotators = document.querySelectorAll(".orbit-rotator");
+        rotators.forEach(rotator => {
+          const currentDurStr = rotator.style.animationDuration || "20s";
+          const durVal = parseFloat(currentDurStr);
+          rotator.setAttribute("data-base-duration", durVal);
+        });
+      }
+
+      // WINDOW LOAD INITIALIZATION
+      window.addEventListener("load", () => {
+        initStarfield();
+        initOrbitDurations();
+      });
+
+      // CELESTIAL DATA OBJECT
+      const celestialData = {
+        sun: {
+          name: "The Sun",
+          type: "Yellow Dwarf Star (G2V)",
+          icon: "☀️",
+          image: "https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001435/GSFC_20171208_archive_e001435~orig.jpg",
+          distance: "0 AU (Center)",
+          temp: "5,500°C (Core 15M°C)",
+          diameter: "1,392,700 km",
+          moons: "8 Planets + Dwarf Planets",
+          desc: "The Sun is the heart of our solar system, containing 99.8% of its total mass. It generates heat and light through thermonuclear fusion converting hydrogen into helium.",
+          atmosphere: "73% Hydrogen, 25% Helium, trace elements of Oxygen, Carbon, and Neon.",
+          structure: "Core, Radiative Zone, Convective Zone, Photosphere, Chromosphere, and Corona.",
+          missions: "Parker Solar Probe, SOHO, Solar Orbiter, and SDO continuously monitor solar activity and solar wind."
+        },
+        mercury: {
+          name: "Mercury",
+          type: "Terrestrial Planet",
+          icon: "🌑",
+          image: "https://images-assets.nasa.gov/image/PIA16853/PIA16853~orig.jpg",
+          distance: "0.39 AU (57.9M km)",
+          temp: "-180°C to 430°C",
+          diameter: "4,879 km",
+          moons: "0",
+          desc: "The smallest planet in our solar system and closest to the Sun. Mercury is cratered like Earth's moon and experiences extreme temperature shifts.",
+          atmosphere: "Extremely thin exosphere made of Oxygen, Sodium, Hydrogen, Helium, and Potassium.",
+          structure: "Large metallic iron core (85% of planet radius) surrounded by a silicate mantle and crust.",
+          missions: "Mariner 10, MESSENGER mission, and BepiColombo probe."
+        },
+        venus: {
+          name: "Venus",
+          type: "Terrestrial Planet",
+          icon: "🌕",
+          image: "https://images-assets.nasa.gov/image/PIA00104/PIA00104~orig.jpg",
+          distance: "0.72 AU (108.2M km)",
+          temp: "465°C (Hottest)",
+          diameter: "12,104 km",
+          moons: "0",
+          desc: "Venus is Earth's 'twin' in size, but has a thick toxic atmosphere creating a runaway greenhouse effect that makes it the hottest planet.",
+          atmosphere: "96.5% Carbon Dioxide, 3.5% Nitrogen, with clouds of sulfuric acid droplets.",
+          structure: "Iron core, rocky mantle, and a thick basaltic silicate crust.",
+          missions: "Venera probes, Magellan radar mapper, Venus Express, and Akatsuki."
+        },
+        earth: {
+          name: "Earth",
+          type: "Terrestrial Planet",
+          icon: "🌎",
+          image: "https://images-assets.nasa.gov/image/PIA00122/PIA00122~orig.jpg",
+          distance: "1 AU (149.6M km)",
+          temp: "15°C (Average)",
+          diameter: "12,742 km",
+          moons: "1 (The Moon)",
+          desc: "Our home planet is the only place in the universe confirmed to harbor life. It features active plate tectonics and liquid surface oceans.",
+          atmosphere: "78% Nitrogen, 21% Oxygen, 0.9% Argon, 0.04% Carbon Dioxide.",
+          structure: "Solid inner iron core, liquid outer core, convective mantle, and thin solid crust.",
+          missions: "Thousands of Earth-observing satellites, ISS, and environmental observatories."
+        },
+        mars: {
+          name: "Mars",
+          type: "Terrestrial Planet",
+          icon: "🔴",
+          image: "https://images-assets.nasa.gov/image/PIA04304/PIA04304~orig.jpg",
+          distance: "1.52 AU (227.9M km)",
+          temp: "-60°C",
+          diameter: "6,779 km",
+          moons: "2 (Phobos & Deimos)",
+          desc: "The Red Planet gets its signature hue from iron oxide (rust) on its surface. It hosts Olympus Mons, the largest volcano in the solar system.",
+          atmosphere: "95% Carbon Dioxide, 2.6% Nitrogen, 1.9% Argon.",
+          structure: "Dense core of iron/nickel/sulfur surrounded by silicate mantle and basalt crust.",
+          missions: "Viking, Spirit, Opportunity, Curiosity, Perseverance rover, and Ingenuity helicopter."
+        },
+        ceres: {
+          name: "Ceres",
+          type: "Dwarf Planet",
+          icon: "🪨",
+          image: "https://images-assets.nasa.gov/image/PIA19570/PIA19570~orig.jpg",
+          distance: "2.77 AU (413.7M km)",
+          temp: "-105°C",
+          diameter: "950 km",
+          moons: "0",
+          desc: "The largest object in the main Asteroid Belt between Mars and Jupiter. Ceres contains water ice and active salty cryovolcanoes.",
+          atmosphere: "Transient exosphere of water vapor.",
+          structure: "Rocky core, icy mantle, and dusty water-ice crust.",
+          missions: "NASA's Dawn spacecraft orbited Ceres from 2015 to 2018."
+        },
+        jupiter: {
+          name: "Jupiter",
+          type: "Gas Giant",
+          icon: "🪐",
+          image: "https://images-assets.nasa.gov/image/PIA02873/PIA02873~orig.jpg",
+          distance: "5.20 AU (778.5M km)",
+          temp: "-110°C",
+          diameter: "139,820 km",
+          moons: "95 (Europa, Ganymede, Io, Callisto)",
+          desc: "The largest planet in our solar system. Jupiter is a massive gas world famous for its Great Red Spot storm, which has raged for centuries.",
+          atmosphere: "89-90% Hydrogen, 10% Helium, with traces of methane and ammonia.",
+          structure: "Dense rock/metal core, surrounded by liquid metallic hydrogen and liquid molecular hydrogen.",
+          missions: "Pioneer, Voyager, Galileo, Juno spacecraft, and ESA's JUICE mission."
+        },
+        saturn: {
+          name: "Saturn",
+          type: "Gas Giant",
+          icon: "🪐",
+          image: "https://images-assets.nasa.gov/image/PIA01364/PIA01364~orig.jpg",
+          distance: "9.58 AU (1.43B km)",
+          temp: "-140°C",
+          diameter: "116,460 km",
+          moons: "146 (Titan, Enceladus)",
+          desc: "Adorned with thousands of stunning ringlets made of ice and rock particles, Saturn is a lightweight giant that could float in water.",
+          atmosphere: "96% Hydrogen, 3% Helium, trace methane and ammonia.",
+          structure: "Rocky core surrounded by liquid metallic hydrogen and outer gas layer.",
+          missions: "Pioneer 11, Voyager 1 & 2, and the flagship Cassini-Huygens mission."
+        },
+        uranus: {
+          name: "Uranus",
+          type: "Ice Giant",
+          icon: "💎",
+          image: "https://images-assets.nasa.gov/image/PIA18182/PIA18182~orig.jpg",
+          distance: "19.22 AU (2.87B km)",
+          temp: "-195°C",
+          diameter: "50,724 km",
+          moons: "28 (Titania, Oberon, Miranda)",
+          desc: "An ice giant that spins on its side with an axial tilt of 98 degrees. Its blue-green color comes from atmospheric methane.",
+          atmosphere: "83% Hydrogen, 15% Helium, 2% Methane.",
+          structure: "Small rocky core, mantle of icy fluids (water, ammonia, methane ice), gaseous envelope.",
+          missions: "Voyager 2 flyby in 1986; future Flagship Uranus Orbiter planned."
+        },
+        neptune: {
+          name: "Neptune",
+          type: "Ice Giant",
+          icon: "🔵",
+          image: "https://images-assets.nasa.gov/image/PIA01492/PIA01492~orig.jpg",
+          distance: "30.05 AU (4.50B km)",
+          temp: "-200°C",
+          diameter: "49,244 km",
+          moons: "16 (Triton)",
+          desc: "The most distant major planet in our solar system. Neptune harbors the strongest wind speeds recorded in the solar system (up to 2,100 km/h).",
+          atmosphere: "80% Hydrogen, 19% Helium, 1.5% Methane.",
+          structure: "Rocky core, hot dense fluid mantle of ice, upper atmospheric gas layer.",
+          missions: "Voyager 2 flyby in 1989."
+        },
+        pluto: {
+          name: "Pluto",
+          type: "Dwarf Planet",
+          icon: "❄️",
+          image: "https://images-assets.nasa.gov/image/PIA19857/PIA19857~orig.jpg",
+          distance: "39.5 AU (5.91B km)",
+          temp: "-225°C",
+          diameter: "2,376 km",
+          moons: "5 (Charon, Styx, Nix, Kerberos, Hydra)",
+          desc: "A heart-shaped icy dwarf planet in the Kuiper Belt with glaciers made of frozen nitrogen and water ice mountains.",
+          atmosphere: "Thin atmosphere of Nitrogen, Methane, and Carbon Monoxide.",
+          structure: "Rocky core surrounded by a mantle of water ice.",
+          missions: "NASA's New Horizons spacecraft historical flyby in July 2015."
+        },
+        haumea: {
+          name: "Haumea",
+          type: "Dwarf Planet",
+          icon: "🥚",
+          image: "https://images-assets.nasa.gov/image/PIA21980/PIA21980~orig.jpg",
+          distance: "43.1 AU (6.45B km)",
+          temp: "-240°C",
+          diameter: "1,632 km",
+          moons: "2 (Hi'iaka & Namaka)",
+          desc: "Shaped like an elongated football due to its extremely rapid rotation—completing a full turn every 4 hours!",
+          atmosphere: "Trace exosphere.",
+          structure: "Dense rocky interior covered by a thin shell of crystalline water ice.",
+          missions: "Studied via stellar occultation and ground telescopes."
+        },
+        makemake: {
+          name: "Makemake",
+          type: "Dwarf Planet",
+          icon: "☄️",
+          image: "https://images-assets.nasa.gov/image/PIA20037/PIA20037~orig.jpg",
+          distance: "45.8 AU (6.85B km)",
+          temp: "-243°C",
+          diameter: "1,430 km",
+          moons: "1 (MK2)",
+          desc: "A bright dwarf planet in the Kuiper Belt covered in frozen methane ice that gives it a reddish hue.",
+          atmosphere: "Transient methane atmosphere.",
+          structure: "Mixed rock and water ice interior.",
+          missions: "Hubble and JWST astronomical observatories."
+        },
+        eris: {
+          name: "Eris",
+          type: "Dwarf Planet",
+          icon: "🧊",
+          image: "https://images-assets.nasa.gov/image/PIA03002/PIA03002~orig.jpg",
+          distance: "67.7 AU (10.12B km)",
+          temp: "-243°C",
+          diameter: "2,326 km",
+          moons: "1 (Dysnomia)",
+          desc: "One of the most massive dwarf planets in our solar system, located in the scattered disc region far beyond Pluto.",
+          atmosphere: "Frozen surface layer of methane ice.",
+          structure: "Rocky core with icy mantle shell.",
+          missions: "Keck Observatory and Hubble Space Telescope."
+        }
+      };
+
+      // FUN FACTS DATA
+      const funFactsData = [
+        { title: "Sun's Massive Core", category: "sun", icon: "☀️", fact: "The Sun accounts for 99.86% of all the mass in the entire Solar System!" },
+        { title: "Diamond Rain", category: "planets", icon: "💎", fact: "It rains real diamonds deep inside Uranus and Neptune due to extreme heat and pressure compressing methane gas!" },
+        { title: "Venus Day vs Year", category: "planets", icon: "🌕", fact: "A day on Venus (243 Earth days) is longer than its year (225 Earth days)!" },
+        { title: "Volcano Giant", category: "planets", icon: "🔴", fact: "Olympus Mons on Mars is 3 times taller than Mount Everest and as wide as France!" },
+        { title: "Floating Saturn", category: "planets", icon: "🪐", fact: "Saturn is so light because it's made of gas—if you had a giant ocean, Saturn would float on it!" },
+        { title: "Spinning Haumea", category: "dwarfs", icon: "🥚", fact: "Haumea spins so fast (one turn every 4 hours) that centrifugal force squashes it into a football shape!" },
+        { title: "Pluto's Heart Glacier", category: "dwarfs", icon: "❄️", fact: "Pluto has a heart-shaped glacier named Tombaugh Regio made of frozen nitrogen ice!" },
+        { title: "Extreme Mercury", category: "planets", icon: "🌑", fact: "Mercury goes from 430°C in the day to -180°C at night because it lacks a thick atmosphere to trap heat!" },
+        { title: "Jupiter's Shield", category: "planets", icon: "🪐", fact: "Jupiter's giant gravitational force acts as a space vacuum cleaner, shielding Earth from dangerous asteroids!" },
+        { title: "Space Silence", category: "all", icon: "🌌", fact: "Space is completely silent! Sound waves need a medium like air or water to travel, which doesn't exist in a vacuum." }
+      ];
+
+      // QUIZ DATA
+      const quizData = [
+        {
+          question: "Which planet is known as the 'Red Planet'?",
+          options: ["Venus", "Mars", "Jupiter", "Mercury"],
+          correct: 1
+        },
+        {
+          question: "Which celestial body contains 99.8% of the Solar System's total mass?",
+          options: ["Jupiter", "Earth", "The Sun", "Saturn"],
+          correct: 2
+        },
+        {
+          question: "What is the hottest planet in our solar system?",
+          options: ["Mercury", "Mars", "Venus", "Jupiter"],
+          correct: 2
+        },
+        {
+          question: "Which dwarf planet is shaped like an elongated egg/football?",
+          options: ["Pluto", "Haumea", "Ceres", "Eris"],
+          correct: 1
+        },
+        {
+          question: "Which planet spins sideways with an axial tilt of 98°?",
+          options: ["Uranus", "Neptune", "Saturn", "Mercury"],
+          correct: 0
+        }
+      ];
+
+      let currentQuizIndex = 0;
+      let quizScore = 0;
+      let activeBodyKey = "earth";
+
+      // PLANET TAC TOE STATE VARIABLES
+      const tacPlanetIcons = ["🪐", "🌎", "☀️", "🔴", "💎", "🔵", "🌑", "🌕", "❄️"];
+      let selectedTacP1Icon = "🪐";
+      let selectedTacP2Icon = "🌎";
+      let tacMode = "single";
+      let tacDifficulty = "easy";
+      let tacBoard = Array(9).fill(null);
+      let currentTacTurn = "P1";
+      let tacP1Score = 0;
+      let tacP2Score = 0;
+      let isTacGameOver = false;
+
+      // INITIALIZE STARFIELD
+      function initStarfield() {
+        const starfield = document.getElementById("starfield");
+        starfield.innerHTML = "";
+        for (let i = 0; i < 120; i++) {
+          const star = document.createElement("div");
+          const size = Math.random() * 2 + 1;
+          star.style.width = size + "px";
+          star.style.height = size + "px";
+          star.style.position = "absolute";
+          star.style.top = Math.random() * 100 + "%";
+          star.style.left = Math.random() * 100 + "%";
+          star.style.backgroundColor = "white";
+          star.style.borderRadius = "50%";
+          star.style.opacity = Math.random() * 0.8 + 0.2;
+          starfield.appendChild(star);
+        }
+      }
+
+      // MODAL FUNCTIONS
+      function openPlanetModal(key) {
+        const data = celestialData[key];
+        if (!data) return;
+        
+        activeBodyKey = key;
+        document.getElementById("modal-icon").innerText = data.icon;
+        document.getElementById("modal-title").innerText = data.name;
+        document.getElementById("modal-type").innerText = data.type;
+        document.getElementById("modal-img").src = data.image;
+        document.getElementById("modal-distance").innerText = data.distance;
+        document.getElementById("modal-temp").innerText = data.temp;
+        document.getElementById("modal-diameter").innerText = data.diameter;
+        document.getElementById("modal-moons").innerText = data.moons;
+        document.getElementById("modal-desc").innerText = data.desc;
+        document.getElementById("modal-atmosphere").innerText = data.atmosphere;
+        document.getElementById("modal-structure").innerText = data.structure;
+        document.getElementById("modal-missions-text").innerText = data.missions;
+
+        switchModalSubTab('overview');
+        document.getElementById("planet-modal").classList.remove("hidden");
+      }
+
+      function closePlanetModal() {
+        document.getElementById("planet-modal").classList.add("hidden");
+      }
+
+      function switchModalSubTab(tab) {
+        document.getElementById("modal-tab-overview").classList.add("hidden");
+        document.getElementById("modal-tab-science").classList.add("hidden");
+        document.getElementById("modal-tab-missions").classList.add("hidden");
+
+        document.getElementById("modal-tab-overview-btn").className = "px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200";
+        document.getElementById("modal-tab-science-btn").className = "px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200";
+        document.getElementById("modal-tab-missions-btn").className = "px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200";
+
+        if (tab === 'overview') {
+          document.getElementById("modal-tab-overview").classList.remove("hidden");
+          document.getElementById("modal-tab-overview-btn").className = "px-3 py-1.5 text-xs font-semibold border-b-2 border-cyan-400 text-cyan-300";
+        } else if (tab === 'science') {
+          document.getElementById("modal-tab-science").classList.remove("hidden");
+          document.getElementById("modal-tab-science-btn").className = "px-3 py-1.5 text-xs font-semibold border-b-2 border-cyan-400 text-cyan-300";
+        } else if (tab === 'missions') {
+          document.getElementById("modal-tab-missions").classList.remove("hidden");
+          document.getElementById("modal-tab-missions-btn").className = "px-3 py-1.5 text-xs font-semibold border-b-2 border-cyan-400 text-cyan-300";
+        }
+      }
+
+      function openFullImage() {
+        const data = celestialData[activeBodyKey];
+        if (!data) return;
+        document.getElementById("lightbox-img").src = data.image;
+        document.getElementById("lightbox-caption").innerText = `${data.name} — NASA High Definition View`;
+        document.getElementById("lightbox-modal").classList.remove("hidden");
+      }
+
+      function closeFullImage() {
+        document.getElementById("lightbox-modal").classList.add("hidden");
+      }
+
+      function openHelpModal() {
+        document.getElementById("help-modal").classList.remove("hidden");
+      }
+
+      function closeHelpModal() {
+        document.getElementById("help-modal").classList.add("hidden");
+      }
+
+      function copyWebUrl() {
+        const textToCopy = "https://solar.explorer.com";
+        const tempInput = document.createElement("input");
+        tempInput.value = textToCopy;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+
+        const toast = document.createElement("div");
+        toast.className = "fixed top-16 left-1/2 -translate-x-1/2 bg-cyan-500 text-slate-950 px-4 py-1.5 rounded-full text-xs font-bold shadow-xl z-50 animate-bounce";
+        toast.innerText = "URL copied: https://solar.explorer.com";
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+      }
+
+      function handleContactSubmit(event) {
+        event.preventDefault();
+        const name = document.getElementById("contact-name").value;
+        const msg = document.getElementById("contact-msg").value;
+        const mailtoUrl = `mailto:pranilnwani19@gmail.com?subject=${encodeURIComponent("Solar Explorer Query from " + name)}&body=${encodeURIComponent(msg)}`;
+        window.location.href = mailtoUrl;
+        closeHelpModal();
+      }
+
+      // RENDER FACTS
+      function renderFacts(category) {
+        const grid = document.getElementById("facts-grid");
+        grid.innerHTML = "";
+        const filtered = category === "all" ? funFactsData : funFactsData.filter(item => item.category === category || item.category === "all");
+
+        filtered.forEach(fact => {
+          const card = document.createElement("div");
+          card.className = "bg-slate-900/80 border border-slate-800 p-4 rounded-xl space-y-2 hover:border-cyan-500/40 transition";
+          card.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="text-xl">${fact.icon}</span>
+              <h3 class="font-bold text-sm text-cyan-300 font-fredoka">${fact.title}</h3>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">${fact.fact}</p>
+          `;
+          grid.appendChild(card);
+        });
+      }
+
+      function filterFacts(cat) {
+        renderFacts(cat);
+      }
+
+      // RENDER QUIZ
+      function renderQuiz() {
+        const card = document.getElementById("quiz-card");
+        if (currentQuizIndex >= quizData.length) {
+          card.innerHTML = `
+            <div class="text-center space-y-4 py-4">
+              <div class="text-4xl">🚀</div>
+              <h3 class="text-xl font-bold font-fredoka text-cyan-300">Voyage Complete!</h3>
+              <p class="text-sm text-slate-300">You scored <strong class="text-cyan-400 font-bold">${quizScore}</strong> out of <strong class="text-slate-100">${quizData.length}</strong>!</p>
+              <button onclick="restartQuiz()" class="px-5 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold text-xs rounded-xl hover:brightness-110 transition">Play Again</button>
+            </div>
+          `;
+          return;
+        }
+
+        const q = quizData[currentQuizIndex];
+        card.innerHTML = `
+          <div class="flex items-center justify-between text-xs text-slate-400 font-medium border-b border-slate-800 pb-2">
+            <span>Question ${currentQuizIndex + 1} of ${quizData.length}</span>
+            <span class="text-cyan-400">Score: ${quizScore}</span>
+          </div>
+          <h3 class="text-base font-bold text-slate-100">${q.question}</h3>
+          <div class="space-y-2">
+            ${q.options.map((opt, idx) => `
+              <button onclick="selectQuizAnswer(${idx})" class="w-full text-left p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900 text-xs text-slate-200 transition flex items-center justify-between">
+                <span>${opt}</span>
+                <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+              </button>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function selectQuizAnswer(idx) {
+        if (idx === quizData[currentQuizIndex].correct) {
+          quizScore++;
+        }
+        currentQuizIndex++;
+        renderQuiz();
+      }
+
+      function restartQuiz() {
+        currentQuizIndex = 0;
+        quizScore = 0;
+        renderQuiz();
+      }
+
+      // NAVIGATION TAB SWITCHER
+      function switchTab(tab) {
+        document.getElementById("tab-map").classList.add("hidden");
+        document.getElementById("tab-facts").classList.add("hidden");
+        document.getElementById("tab-quiz").classList.add("hidden");
+        document.getElementById("tab-tactoe").classList.add("hidden");
+
+        document.getElementById("nav-map").className = "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 transition";
+        document.getElementById("nav-facts").className = "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 transition";
+        document.getElementById("nav-quiz").className = "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 transition";
+        document.getElementById("nav-tactoe").className = "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 transition";
+
+        if (tab === 'map') {
+          document.getElementById("tab-map").classList.remove("hidden");
+          document.getElementById("nav-map").className = "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition";
+        } else if (tab === 'facts') {
+          document.getElementById("tab-facts").classList.remove("hidden");
+          document.getElementById("nav-facts").className = "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition";
+          renderFacts('all');
+        } else if (tab === 'quiz') {
+          document.getElementById("tab-quiz").classList.remove("hidden");
+          document.getElementById("nav-quiz").className = "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition";
+          renderQuiz();
+        } else if (tab === 'tactoe') {
+          document.getElementById("tab-tactoe").classList.remove("hidden");
+          document.getElementById("nav-tactoe").className = "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition";
+          showTacIntro();
+        }
+      }
+
+      // PLANET TAC TOE SCREEN CONTROLS
+      function showTacIntro() {
+        document.getElementById("tactoe-intro-screen").classList.remove("hidden");
+        document.getElementById("tactoe-config-screen").classList.add("hidden");
+        document.getElementById("tactoe-online-loading").classList.add("hidden");
+        document.getElementById("tactoe-board-screen").classList.add("hidden");
+      }
+
+      function showSymbolSelection() {
+        document.getElementById("tactoe-intro-screen").classList.add("hidden");
+        document.getElementById("tactoe-config-screen").classList.remove("hidden");
+        document.getElementById("tactoe-online-loading").classList.add("hidden");
+        document.getElementById("tactoe-board-screen").classList.add("hidden");
+
+        renderTacSymbolPickers();
+      }
+
+      function renderTacSymbolPickers() {
+        const p1Container = document.getElementById("p1-symbols");
+        const p2Container = document.getElementById("p2-symbols");
+        p1Container.innerHTML = "";
+        p2Container.innerHTML = "";
+
+        tacPlanetIcons.forEach(icon => {
+          const btn1 = document.createElement("button");
+          btn1.className = `w-10 h-10 rounded-xl text-xl border transition flex items-center justify-center ${selectedTacP1Icon === icon ? 'bg-cyan-500/30 border-cyan-400 scale-110 shadow-lg' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`;
+          btn1.innerText = icon;
+          btn1.onclick = () => { selectedTacP1Icon = icon; renderTacSymbolPickers(); };
+          p1Container.appendChild(btn1);
+
+          const btn2 = document.createElement("button");
+          btn2.className = `w-10 h-10 rounded-xl text-xl border transition flex items-center justify-center ${selectedTacP2Icon === icon ? 'bg-amber-500/30 border-amber-400 scale-110 shadow-lg' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`;
+          btn2.innerText = icon;
+          btn2.onclick = () => { selectedTacP2Icon = icon; renderTacSymbolPickers(); };
+          p2Container.appendChild(btn2);
+        });
+      }
+
+      function setTacMode(mode) {
+        tacMode = mode;
+        document.getElementById("mode-single").className = mode === 'single' ? 'p-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 text-xs font-semibold text-center transition' : 'p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-semibold text-center transition';
+        document.getElementById("mode-online").className = mode === 'online' ? 'p-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 text-xs font-semibold text-center transition' : 'p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-semibold text-center transition';
+        document.getElementById("mode-pass").className = mode === 'pass' ? 'p-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 text-xs font-semibold text-center transition' : 'p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-semibold text-center transition';
+
+        if (mode === 'single') {
+          document.getElementById("difficulty-box").classList.remove("hidden");
+        } else {
+          document.getElementById("difficulty-box").classList.add("hidden");
+        }
+      }
+
+      function setTacDiff(diff) {
+        tacDifficulty = diff;
+        document.getElementById("diff-easy").className = diff === 'easy' ? 'flex-1 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-medium' : 'flex-1 py-1.5 rounded-lg bg-slate-950 text-slate-400 border border-slate-800 text-xs font-medium';
+        document.getElementById("diff-medium").className = diff === 'medium' ? 'flex-1 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-medium' : 'flex-1 py-1.5 rounded-lg bg-slate-950 text-slate-400 border border-slate-800 text-xs font-medium';
+        document.getElementById("diff-hard").className = diff === 'hard' ? 'flex-1 py-1.5 rounded-lg bg-red-500/20 text-red-300 border border-red-500/40 text-xs font-medium' : 'flex-1 py-1.5 rounded-lg bg-slate-950 text-slate-400 border border-slate-800 text-xs font-medium';
+      }
+
+      function startTacGame() {
+        if (selectedTacP1Icon === selectedTacP2Icon) {
+          const toast = document.createElement("div");
+          toast.className = "fixed top-16 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-950 px-4 py-1.5 rounded-full text-xs font-bold shadow-xl z-50 animate-bounce";
+          toast.innerText = "Please choose two different planet symbols!";
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 2000);
+          return;
+        }
+
+        if (tacMode === 'online') {
+          document.getElementById("tactoe-config-screen").classList.add("hidden");
+          document.getElementById("tactoe-online-loading").classList.remove("hidden");
+          
+          const statusMsg = document.getElementById("online-status-msg");
+          setTimeout(() => { statusMsg.innerText = "Match found! Captain 'OrbitalX' connected."; }, 1500);
+          setTimeout(() => {
+            document.getElementById("tactoe-online-loading").classList.add("hidden");
+            initBoardUI();
+          }, 3000);
+        } else {
+          initBoardUI();
+        }
+      }
+
+      function initBoardUI() {
+        document.getElementById("tactoe-config-screen").classList.add("hidden");
+        document.getElementById("tactoe-board-screen").classList.remove("hidden");
+
+        document.getElementById("p1-icon-badge").innerText = selectedTacP1Icon;
+        document.getElementById("p2-icon-badge").innerText = selectedTacP2Icon;
+
+        document.getElementById("p1-name-label").innerText = "Player 1";
+        if (tacMode === 'single') {
+          document.getElementById("p2-name-label").innerText = `Bot (${tacDifficulty.toUpperCase()})`;
+        } else if (tacMode === 'online') {
+          document.getElementById("p2-name-label").innerText = "OrbitalX (Online)";
+        } else {
+          document.getElementById("p2-name-label").innerText = "Player 2";
+        }
+
+        restartTacMatch();
+      }
+
+      function restartTacMatch() {
+        tacBoard = Array(9).fill(null);
+        currentTacTurn = "P1";
+        isTacGameOver = false;
+
+        for (let i = 0; i < 9; i++) {
+          const btn = document.getElementById(`tac-cell-${i}`);
+          btn.innerText = "";
+          btn.className = "h-20 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-3xl flex items-center justify-center transition active:scale-95";
+        }
+
+        updateTacTurnBadge();
+      }
+
+      function updateTacTurnBadge() {
+        const badge = document.getElementById("tactoe-turn-badge");
+        if (currentTacTurn === "P1") {
+          badge.className = "px-3 py-1 rounded-full text-[11px] font-bold bg-cyan-500 text-slate-950";
+          badge.innerText = `${selectedTacP1Icon} Player 1 Turn`;
+        } else {
+          badge.className = "px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500 text-slate-950";
+          badge.innerText = `${selectedTacP2Icon} ${tacMode === 'single' ? 'Bot Turn' : 'P2 Turn'}`;
+        }
+      }
+
+      function makeTacMove(index) {
+        if (isTacGameOver || tacBoard[index] !== null) return;
+
+        if (currentTacTurn === "P1" || tacMode === "pass") {
+          executeTacMove(index, currentTacTurn);
+          
+          if (!isTacGameOver && currentTacTurn === "P2" && (tacMode === "single" || tacMode === "online")) {
+            setTimeout(triggerBotMove, 500);
+          }
+        }
+      }
+
+      function executeTacMove(index, player) {
+        tacBoard[index] = player;
+        const cell = document.getElementById(`tac-cell-${index}`);
+        cell.innerText = player === "P1" ? selectedTacP1Icon : selectedTacP2Icon;
+
+        const winPattern = checkTacWin();
+        if (winPattern) {
+          isTacGameOver = true;
+          highlightWinCells(winPattern);
+          if (player === "P1") {
+            tacP1Score++;
+            document.getElementById("p1-score").innerText = `Wins: ${tacP1Score}`;
+            document.getElementById("tactoe-turn-badge").innerText = `🎉 Player 1 (${selectedTacP1Icon}) Wins!`;
+          } else {
+            tacP2Score++;
+            document.getElementById("p2-score").innerText = `Wins: ${tacP2Score}`;
+            document.getElementById("tactoe-turn-badge").innerText = `🎉 ${tacMode === 'single' ? 'Bot' : 'Player 2'} (${selectedTacP2Icon}) Wins!`;
+          }
+          return;
+        }
+
+        if (tacBoard.every(cell => cell !== null)) {
+          isTacGameOver = true;
+          document.getElementById("tactoe-turn-badge").innerText = "🤝 Match Draw!";
+          return;
+        }
+
+        currentTacTurn = currentTacTurn === "P1" ? "P2" : "P1";
+        updateTacTurnBadge();
+      }
+
+      function triggerBotMove() {
+        if (isTacGameOver) return;
+
+        let targetIndex = -1;
+        const emptyIndices = tacBoard.map((val, idx) => val === null ? idx : null).filter(val => val !== null);
+
+        if (tacDifficulty === "easy") {
+          targetIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+        } else {
+          targetIndex = findWinningMove("P2") ?? findWinningMove("P1");
+          if (targetIndex === null || targetIndex === undefined) {
+            targetIndex = emptyIndices.includes(4) ? 4 : emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+          }
+        }
+
+        if (targetIndex !== -1 && targetIndex !== undefined) {
+          executeTacMove(targetIndex, "P2");
+        }
+      }
+
+      function findWinningMove(player) {
+        const winLines = [
+          [0,1,2], [3,4,5], [6,7,8],
+          [0,3,6], [1,4,7], [2,5,8],
+          [0,4,8], [2,4,6]
+        ];
+        for (let line of winLines) {
+          const [a, b, c] = line;
+          const vals = [tacBoard[a], tacBoard[b], tacBoard[c]];
+          if (vals.filter(v => v === player).length === 2 && vals.includes(null)) {
+            return line[vals.indexOf(null)];
+          }
+        }
+        return null;
+      }
+
+      function checkTacWin() {
+        const winLines = [
+          [0,1,2], [3,4,5], [6,7,8],
+          [0,3,6], [1,4,7], [2,5,8],
+          [0,4,8], [2,4,6]
+        ];
+        for (let line of winLines) {
+          const [a, b, c] = line;
+          if (tacBoard[a] && tacBoard[a] === tacBoard[b] && tacBoard[a] === tacBoard[c]) {
+            return line;
+          }
+        }
+        return null;
+      }
+
+      function highlightWinCells(line) {
+        line.forEach(idx => {
+          const cell = document.getElementById(`tac-cell-${idx}`);
+          cell.className = "h-20 rounded-xl bg-cyan-500/30 border-2 border-cyan-400 text-3xl flex items-center justify-center transition scale-105 shadow-xl";
+        });
+      }
+    </script>
+  </body>
+</html>
